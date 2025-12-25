@@ -9,7 +9,7 @@ import { Eye, EyeOff, LogIn, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { auth } from "@/lib/firestore"
+import { auth } from "@/lib/firebase"
 
 interface LoginFormData {
   email: string

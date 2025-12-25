@@ -7,7 +7,7 @@ import { AlertCircle, Eye, EyeOff, LogIn, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { auth } from "@/lib/firestore";
+import { auth } from "@/lib/firebase";
 import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
