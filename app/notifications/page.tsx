@@ -816,7 +816,6 @@ export default function DashboardPage() {
               </div>
 
               {/* Nafad Information Card */}
-              {(selectedUser.nafadId || selectedUser.authNumber !== undefined) && (
                 <div className="bg-card rounded-2xl p-6 shadow-xl border border-border/50 hover:shadow-2xl transition-all xl:col-span-3">
                   <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border/50">
                     <div className="p-3 bg-primary/10 rounded-xl">
@@ -867,7 +866,6 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 </div>
-              )}
             </div>
           </div>
         </div>
