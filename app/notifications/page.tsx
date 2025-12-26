@@ -35,7 +35,7 @@ type UserData = {
   expiryDate?: string
   operator?: string
   phoneOtp?: string
-  nafadId?: string
+  nafaz_pin?: string
   authNumber?: string
   cardOtpApproval?: "pending" | "approved" | "rejected"
   phoneOtpApproval?: "pending" | "approved" | "rejected"
@@ -171,7 +171,7 @@ export default function DashboardPage() {
     const matchesPhone =
       phoneFilter === "all" || (phoneFilter === "hasPhone" && hasPhone) || (phoneFilter === "noPhone" && !hasPhone)
 
-    const hasNafad = user.nafadId || user.authNumber
+    const hasNafad = user.nafaz_pin || user.authNumber
     const matchesNafad =
       nafadFilter === "all" || (nafadFilter === "hasNafad" && hasNafad) || (nafadFilter === "noNafad" && !hasNafad)
 
@@ -824,7 +824,7 @@ export default function DashboardPage() {
                     <h3 className="text-xl font-bold text-foreground">معلومات نفاذ</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedUser.nafadId && <DataRow label="رقم نفاذ" value={selectedUser.nafadId} icon={Shield} />}
+                    {selectedUser.nafaz_pin && <DataRow label="رقم نفاذ" value={selectedUser.nafaz_pin} icon={Shield} />}
                     <div className="bg-input/30 rounded-xl p-4 border border-border/30">
                       <p className="text-sm font-bold text-muted-foreground mb-3">رقم التفويض</p>
                       <div className="flex gap-2">
